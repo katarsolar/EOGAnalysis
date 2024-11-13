@@ -48,6 +48,8 @@ class EOGDataModule(pl.LightningDataModule):
             labels = h5_file['labels'][()]
             logger.info('The data is opened.')
 
+        signals = np.transpose(signals, (2, 0, 1))  # (4000, 4, 256)
+
         if self.cfg.make_embeddings:
             if os.path.exists(self.embeddings_path):
                 logger.info("Loading precomputed embeddings...")
@@ -56,7 +58,6 @@ class EOGDataModule(pl.LightningDataModule):
             else:
                 logger.info("Creating embeddings...")
                 embeddings = []
-                signals = np.transpose(signals, (2, 0, 1))  # (4000, 4, 256)
                 for i in range(signals.shape[0]):
                     instance_embeddings = []
                     for channel in range(signals.shape[1]):
@@ -71,11 +72,17 @@ class EOGDataModule(pl.LightningDataModule):
                 np.save(self.embeddings_path, signals)
                 logger.info(f"Embeddings saved to {self.embeddings_path}")
 
-        else:
-            signals = np.transpose(signals, (2, 0, 1))  # (4000, 4, 256)
-            sig_mean = signals.mean(axis=(0, 2), keepdims=True)
-            sig_std = signals.std(axis=(0, 2), keepdims=True)
-            signals = (signals - sig_mean) / sig_std
+        sig_mean = signals.mean(axis=(0, 2), keepdims=True)
+        sig_std = signals.std(axis=(0, 2), keepdims=True)
+        signals = (signals - sig_mean) / sig_std
+
+        if self.cfg.make_fusion:
+            logger.info("Fusion mode activated.")
+            padded_signals = np.zeros((signals.shape[0], signals.shape[1], embeddings.shape[2]))
+            padded_signals[:, :, :signals.shape[2]] = signals
+            signals = padded_signals + embeddings
+            logger.info(f"Fusion completed with shape: {signals.shape}")
+
 
         labels = np.transpose(labels, (1, 0))
         logger.info(f'labels after: {labels.shape}, signals after : {signals.shape}')
