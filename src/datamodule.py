@@ -42,8 +42,15 @@ class EOGDataModule(pl.LightningDataModule):
         if self.cfg.make_embeddings:
             pass
         logger.info(f'labels: {labels.shape}, signals: {signals.shape}')
-        signals = np.transpose(signals, (2, 0, 1))  # (4000, 4, 256)
+        signals = np.transpose(signals, (2, 0, 1))# (4000, 4, 256)
+
+        # basic transform.
+        sig_mean = signals.mean(axis=(0,2), keepdims=True)
+        sig_std = signals.std(axis=(0,2), keepdims=True)
+        signals = (signals - sig_mean) / sig_std
+
         labels = np.transpose(labels, (1, 0))
+        logger.info(f'labels after: {labels.shape}, signals after : {signals.shape}')
         X_train, X_temp, y_train, y_temp = train_test_split(signals, labels, test_size=0.25, random_state=42)
         X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.65, random_state=42)
         logger.info("Dataset is splitted.")

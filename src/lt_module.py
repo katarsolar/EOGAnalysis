@@ -1,7 +1,6 @@
 import os
 from typing import Dict, Any
 
-
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
@@ -10,54 +9,45 @@ import timm
 
 from src.logger import LOGGER
 from src.schedulers import get_cosine_schedule_with_warmup
-# from src.transforms import get_augmentations
 from src.configs import ModelConfig
 from lightning.pytorch import LightningModule
 
-
-class MLPHead(nn.Module):
-    def __init__(self, in_dim, hidden_dim, mid_dim, out_dim):
-        super(MLPHead, self).__init__()
-        self.fc1 = nn.Linear(in_dim, hidden_dim)
-        self.bn1 = nn.BatchNorm1d(hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, mid_dim)
-        self.bn2 = nn.BatchNorm1d(mid_dim)
-        self.fc3 = nn.Linear(mid_dim, out_dim)
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = self.bn1(x)
-        x = F.relu(x)
-        x = self.fc2(x)
-        x = self.bn2(x)
-        x = self.fc3(x)
-        return x
+logger = LOGGER
 
 
 class CNN1DModel(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes=2):
         super(CNN1DModel, self).__init__()
-        self.conv1 = nn.Conv1d(in_channels=4, out_channels=16, kernel_size=3, stride=1, padding=1)
-        pin_memory=True,
-        self.conv2 = nn.Conv1d(16, 32, kernel_size=3, stride=1, padding=1)
-        self.fc1 = nn.Linear(32 * 256, num_classes)
-        self.relu = nn.ReLU()
-        self.fc1 = nn.Linear(in_features=32 * 256, out_features=4096)
-        self.pool = nn.MaxPool1d(2)
-        self.fc3 = nn.Linear(4096, out_features=num_classes)
+        self.conv1 = nn.Conv1d(in_channels=4, out_channels=64, kernel_size=7, padding=3)
+        self.bn1 = nn.BatchNorm1d(64)
 
+        self.conv2 = nn.Conv1d(64, 128, kernel_size=5, padding=2)
+        self.bn2 = nn.BatchNorm1d(128)
+
+        self.conv3 = nn.Conv1d(128, 256, kernel_size=3, padding=1)
+        self.bn3 = nn.BatchNorm1d(256)
+
+        self.pool = nn.AdaptiveAvgPool1d(1)
+
+        self.dropout = nn.Dropout(0.5)
+        self.fc1 = nn.Linear(256, 256)
+        self.fc2 = nn.Linear(256, 64)
+        self.fc3 = nn.Linear(64, num_classes)
 
     def forward(self, x):
-        x = self.relu(self.conv1(x))
-        x = self.pool(self.relu(self.conv2(x)))
-        x = x.view(x.size(0), -1)  # развертываем перед полносвязным слоем
-        x = self.fc(x)
-        x = self.relu(x)
-        x = self.fc2(x)
-        x = self.relu(x)
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = self.dropout(x)
+
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = self.dropout(x)
+
+        x = F.relu(self.bn3(self.conv3(x)))
+        x = self.pool(x)
+
+        x = x.view(x.size(0), -1)
+        x = F.relu(self.fc2(F.relu(self.fc1(x))))
         x = self.fc3(x)
         return x
-
 
 
 class EOGLightningModule(LightningModule):
@@ -68,22 +58,49 @@ class EOGLightningModule(LightningModule):
         self.loss_fn = nn.MSELoss()
 
     def forward(self, x):
+        x = x.permute(0, 2, 1)
         x = x.float()
         return self.skeleton_model(x)
 
     def training_step(self, batch, batch_idx):
         inputs, targets = batch
+        inputs = inputs.float()
+        targets = targets.float()
         outputs = self.forward(inputs)
         loss = self.loss_fn(outputs, targets)
-        self.log("train_loss", loss, prog_bar=True, logger=True, on_step=True)
-        return {"train_loss": loss}
+
+
+        rmse = torch.sqrt(loss)
+
+        # Log both training loss and RMSE
+        self.log("train_loss", loss, prog_bar=True, logger=True)
+        self.log("train_rmse", rmse, prog_bar=True, logger=True)
+        logger.info(f'Training Loss: {loss.item()}, Training RMSE: {rmse.item()}')
+
+        return {"loss": loss}
 
     def validation_step(self, batch, batch_idx):
         inputs, targets = batch
         outputs = self.forward(inputs)
         val_loss = self.loss_fn(outputs, targets)
+
+        # Calculate RMSE
+        rmse = torch.sqrt(val_loss)
+
+        # Log both validation loss and RMSE
         self.log("val_loss", val_loss, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
-        return {"val_loss": val_loss}
+        self.log("val_rmse", rmse, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+        logger.info(f'Validation Loss: {val_loss.item()}, Validation RMSE: {rmse.item()}')
+
+        return {"val_loss": val_loss, "val_rmse": rmse}
+
+    def test_step(self, batch, batch_idx):
+        inputs, targets = batch
+        outputs = self.forward(inputs)
+        test_loss = self.loss_fn(outputs, targets)
+        self.log("test_loss", test_loss, prog_bar=True, logger=True, on_step=False, on_epoch=True)
+        logger.info(f'Test Loss: {test_loss.item()}')
+        return test_loss
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=self.config.learning_rate)

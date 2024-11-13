@@ -1,5 +1,8 @@
 from torch.utils.data import Dataset
-
+from src.logger import LOGGER
+import torch
+from src.constants import PROJECT_ROOT
+logger = LOGGER
 
 
 class EOGDataset(Dataset):
@@ -15,7 +18,8 @@ class EOGDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        signal = self.data[:,:,idx]
+        signal = self.data[idx,:,:]
+        signal = torch.transpose(torch.Tensor(signal), 1, 0)
         label = self.labels[idx, :]
         if self.transform:
             signal = self.transform(signal)

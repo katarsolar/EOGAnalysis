@@ -43,6 +43,7 @@ class DataConfig(_BaseConfig):
 
 
 class ExpConfig(_BaseConfig):
+    max_epochs:int = 10
     track_in_clearml:bool = False
     trainer_config: Dict[str, Any] = Field(default_factory=dict)
     project_name:str = "ssl"
