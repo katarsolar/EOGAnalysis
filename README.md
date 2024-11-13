@@ -10,6 +10,7 @@ This repository provides a comprehensive pipeline for estimating 2D eye movement
 - [Configuration](#configuration)
 - [Usage](#usage)
 - [Model Architecture](#model-architecture)
+- [Experiments](#experiments)
 - [Results](#results)
 - [References](#references)
 
@@ -36,6 +37,8 @@ Inspired by the **LETS-C** framework ([Kaur et al., 2024](https://arxiv.org/abs/
 
 ### 2. Model Architecture
 
+![arch](imgs/arch.png)
+
 The project adopts a lightweight CNN-based classification head inspired by LETS-C's design principles, ensuring high performance with fewer parameters:
    - **Convolutional Neural Network (CNN)**: The fused embeddings and signals are passed through a 1D CNN that learns spatial hierarchies within each concatenated vector.
    - **Fully Connected Layers**: Flattened outputs from the CNN are passed through fully connected layers (MLP) to map the embeddings to 2D eye trajectory predictions.
@@ -57,3 +60,37 @@ num_workers: 4
 make_embeddings: True
 make_fusion: True
 embedding_dim: 3072
+```
+### Usage
+
+#### Clone the Repository
+
+```bash
+git clone https://github.com/yourusername/EOG-Trajectory-Estimation.git
+cd EOG-Trajectory-Estimation
+
+pip install -r requirements.txt
+
+
+python src/train.py
+```
+## Experiments
+
+![losses](imgs/rm1_loss.png)
+
+### Experiemnt 1 (No Embeddings) 
+
+![exp1](imgs/exp1_rmse.png)
+
+### Experiment 2 (No fusion embedding) 
+
+![exp2](imgs/exp2_rmse.png) 
+
+### Other experiments are in process...
+
+## References
+
+1. **Barbara, N., Camilleri, T. A., & Camilleri, K. P.** *Eye Movement Data Recorded Using EOG Under Stationary Head Pose Conditions*. University of Malta, Centre for Biomedical Cybernetics.
+2. **Kaur, R., Zeng, Z., Balch, T., & Veloso, M. (2024)**. *LETS-C: Leveraging Language Embedding for Time Series Classification*. arXiv:2407.06533.
+
+
