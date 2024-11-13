@@ -35,7 +35,7 @@ class DatasetConfig(_BaseConfig):
 
 class DataConfig(_BaseConfig):
     data_path:Path = root / 'data/combined_dataset.h5'
-    make_embeddings:bool = False
+    make_embeddings:bool = True
     data_link:str = "https://drive.google.com/uc?id=1zmqESjLp2ViTyPYvlA-ck84kVVZNUFlf"
     num_workers:int = 4
     pin_memory:bool = True

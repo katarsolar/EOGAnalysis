@@ -72,7 +72,7 @@ class EOGLightningModule(LightningModule):
 
         rmse = torch.sqrt(loss)
 
-        # Log both training loss and RMSE
+
         self.log("train_loss", loss, prog_bar=True, logger=True)
         self.log("train_rmse", rmse, prog_bar=True, logger=True)
         logger.info(f'Training Loss: {loss.item()}, Training RMSE: {rmse.item()}')
@@ -84,10 +84,10 @@ class EOGLightningModule(LightningModule):
         outputs = self.forward(inputs)
         val_loss = self.loss_fn(outputs, targets)
 
-        # Calculate RMSE
+
         rmse = torch.sqrt(val_loss)
 
-        # Log both validation loss and RMSE
+
         self.log("val_loss", val_loss, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
         self.log("val_rmse", rmse, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
         logger.info(f'Validation Loss: {val_loss.item()}, Validation RMSE: {rmse.item()}')
